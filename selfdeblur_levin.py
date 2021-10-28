@@ -30,7 +30,10 @@ opt = parser.parse_args()
 
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark =True
-dtype = torch.cuda.FloatTensor
+if torch.cuda.is_available():
+    dtype = torch.cuda.FloatTensor
+else:
+    dtype = torch.FloatTensor
 
 warnings.filterwarnings("ignore")
 
@@ -115,6 +118,10 @@ for f in files_source:
     net_input_saved = net_input.detach().clone()
     net_input_kernel_saved = net_input_kernel.detach().clone()
 
+    # store the losses
+    iterations = []
+    losses = []
+
     ### start SelfDeblur
     for step in tqdm(range(num_iter)):
 
@@ -158,3 +165,9 @@ for f in files_source:
 
             torch.save(net, os.path.join(opt.save_path, "%s_xnet.pth" % imgname))
             torch.save(net_kernel, os.path.join(opt.save_path, "%s_knet.pth" % imgname))
+
+            iterations.append(step)
+            losses.append(total_loss.item())
+            plt.plot(iterations,losses)
+            plt.savefig(os.path.join(opt.save_path,"%s_loss.eps" % imgname))
+
