@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 from PIL import Image
 import PIL
+from skimage.io import imsave
 import numpy as np
 
 
@@ -290,5 +291,41 @@ def readimg(path_to_image):
     y, cr, cb = cv2.split(x)
 
     return img, y, cb, cr
+
+def save_image(out_x, save_path,padh,padw,img_size):
+    """ Saving the output of the network for the image
+
+    :param out_x: tensor output of the network containing the image
+    :type out_x: torch.tensor
+    :param save_path: file path where to save the image
+    :type save_path: str
+    :param padh: vertical padding previously added to the image for boundary conditions (remove when saving)
+    :type padh: int
+    :param padw: horizontal padding previously added to the image for boundary conditions (remove when saving)
+    :type padw: int
+    :param img_size: size of each image dimension of the image (num channels, height, width)
+    :type img_size: tuple or list
+    :return: None
+    """
+
+    out_x_np = torch_to_np(out_x)
+    out_x_np = out_x_np.squeeze()
+    out_x_np = out_x_np[padh // 2:padh // 2 + img_size[1], padw // 2:padw // 2 + img_size[2]]
+    imsave(save_path, out_x_np)
+
+
+def save_kernel(out_k_m,save_path):
+    """ Saving the output of the network for the kernel
+
+    :param out_x: tensor output of the network containing the kernel (reshaped to a 2D kernel)
+    :type out_x: torch.tensor
+    :param save_path: file path where to save the image
+    :type save_path: str
+    :return: None
+    """
+    out_k_np = torch_to_np(out_k_m)
+    out_k_np = out_k_np.squeeze()
+    out_k_np /= np.max(out_k_np)
+    imsave(save_path, out_k_np)
 
 
