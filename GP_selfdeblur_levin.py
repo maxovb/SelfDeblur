@@ -24,7 +24,7 @@ parser.add_argument('--num_iter', type=int, default=20000, help='number of epoch
 parser.add_argument('--img_size', type=int, default=[256, 256], help='size of each image dimension')
 parser.add_argument('--kernel_size', type=int, default=[21, 21], help='size of blur kernel [height, width]')
 parser.add_argument('--data_path', type=str, default="datasets/levin/", help='path to blurry image')
-parser.add_argument('--save_path', type=str, default="results/levin/", help='path to save results')
+parser.add_argument('--save_path', type=str, default="results/GP_levin/", help='path to save results')
 parser.add_argument('--save_frequency', type=int, default=100, help='frequency to save results')
 parser.add_argument('--param_noise_sigma',type=float,default=2,help='std of the noise in SGLD')
 parser.add_argument('--weight_decay',type=float,default=5e-8)
@@ -59,7 +59,7 @@ for f in files_source:
     pad = 'reflection'
     LR = 0.01
     num_iter = opt.num_iter
-    reg_noise_std = 1./30.
+    reg_noise_std = 0.001
     weight_decay = opt.weight_decay
 
     # parameters for the SGLD
@@ -91,6 +91,11 @@ for f in files_source:
 
     _, imgs = get_image(path_to_image, -1) # load image and convert to np.
     y = np_to_torch(imgs).type(dtype)
+
+    # get the real image
+    path_to_gt_image = os.path.join(opt.data_path, "gt/im" + path_to_image.split("im")[0][0] + ".png")
+    _, gt_imgs = get_image(path_to_gt_image, -1)  # load image and convert to np.
+    x_gt = np_to_torch(gt_imgs).type(dtype)
 
     img_size = imgs.shape
     print(imgname)
@@ -139,6 +144,8 @@ for f in files_source:
     # store the loss values
     mse_list = []
     psnr_list = []
+    ssim_gt_list = []
+    psnr_gt_list = []
 
     # initialize variables for backtracking
     last_nets = None
@@ -180,9 +187,16 @@ for f in files_source:
         # compute the psnr to the blurry image
         psnr = peak_signal_noise_ratio(y.detach().cpu().numpy()[0], out_y.detach().cpu().numpy()[0])
 
+        # compute the losses to the gt image
+        out_x = out_x[:, :, padh // 2:padh // 2 + img_size[1], padw // 2:padw // 2 + img_size[2]]
+        psnr_gt = peak_signal_noise_ratio(x_gt.detach().cpu().numpy()[0], out_x.detach().cpu().numpy()[0]).item()
+        ssim_gt = ssim(out_x, x_gt).item()
+
         # store the losses
         mse_list.append(total_loss.item())
         psnr_list.append(psnr)
+        ssim_gt_list.append(ssim_gt)
+        psnr_gt_list.append(psnr_gt_list)
 
         # backtracking
         if roll_back and (step+1) % MCMC_iter:
@@ -254,5 +268,22 @@ for f in files_source:
                 plt.ylabel('PSNR', fontsize=15)
                 plt.savefig(save_path)
                 plt.close()
+
+                save_path = os.path.join(opt.save_path, '%s_SSIM_gt.png' % imgname)
+                plt.figure()
+                plt.plot(ssim_gt_list)
+                plt.xlabel('Iterations', fontsize=15)
+                plt.ylabel('SSIM', fontsize=15)
+                plt.savefig(save_path)
+                plt.close()
+
+                save_path = os.path.join(opt.save_path, '%s_PSNR_gt.png' % imgname)
+                plt.figure()
+                plt.plot(psnr_gt_list)
+                plt.xlabel('Iterations', fontsize=15)
+                plt.ylabel('PSNR', fontsize=15)
+                plt.savefig(save_path)
+                plt.close()
+
 
 

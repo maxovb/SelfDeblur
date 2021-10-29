@@ -12,6 +12,7 @@ import torch.optim
 import glob
 from skimage.io import imread
 from skimage.io import imsave
+from skimage.metrics import peak_signal_noise_ratio
 import warnings
 from tqdm import tqdm
 from torch.optim.lr_scheduler import MultiStepLR
@@ -74,6 +75,11 @@ for f in files_source:
     _, imgs = get_image(path_to_image, -1) # load image and convert to np.
     y = np_to_torch(imgs).type(dtype)
 
+    # get the real image
+    path_to_gt_image = os.path.join(opt.data_path,"gt/im"+ path_to_image.split("im")[1][0] + ".png")
+    _, gt_imgs = get_image(path_to_gt_image, -1)  # load image and convert to np.
+    x_gt = np_to_torch(gt_imgs).type(dtype)
+
     img_size = imgs.shape
     print(imgname)
     # ######################################################################
@@ -118,6 +124,10 @@ for f in files_source:
     net_input_saved = net_input.detach().clone()
     net_input_kernel_saved = net_input_kernel.detach().clone()
 
+    # initialization list of losses
+    psnr_gt_list = []
+    ssim_gt_list = []
+
     ### start SelfDeblur
     for step in tqdm(range(num_iter)):
 
@@ -144,6 +154,13 @@ for f in files_source:
         total_loss.backward()
         optimizer.step()
 
+        # compute the losses to the gt image
+        out_x = out_x[:,:,padh // 2:padh // 2 + img_size[1], padw // 2:padw // 2 + img_size[2]]
+        psnr_gt = peak_signal_noise_ratio(x_gt.detach().cpu().numpy()[0], out_x.detach().cpu().numpy()[0]).item()
+        ssim_gt = ssim(out_x, x_gt).item()
+        psnr_gt_list.append(psnr_gt)
+        ssim_gt_list.append(ssim_gt)
+
         if (step+1) % opt.save_frequency == 0:
             #print('Iteration %05d' %(step+1))
 
@@ -161,3 +178,19 @@ for f in files_source:
 
             torch.save(net, os.path.join(opt.save_path, "%s_xnet.pth" % imgname))
             torch.save(net_kernel, os.path.join(opt.save_path, "%s_knet.pth" % imgname))
+
+            save_path = os.path.join(opt.save_path, '%s_SSIM_gt.png' % imgname)
+            plt.figure()
+            plt.plot(ssim_gt_list)
+            plt.xlabel('Iterations', fontsize=15)
+            plt.ylabel('SSIM', fontsize=15)
+            plt.savefig(save_path)
+            plt.close()
+
+            save_path = os.path.join(opt.save_path, '%s_PSNR_gt.png' % imgname)
+            plt.figure()
+            plt.plot(psnr_gt_list)
+            plt.xlabel('Iterations', fontsize=15)
+            plt.ylabel('PSNR', fontsize=15)
+            plt.savefig(save_path)
+            plt.close()
