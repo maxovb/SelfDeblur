@@ -65,15 +65,17 @@ def backtracking(psnr,psnr_last,nets,last_nets,threshold=-5):
 
     # Backtracking
     rolled_back = False
-    if psnr - psnr_last < threshold and last_nets:
+    if psnr - psnr_last < -threshold and last_nets:
         print('Falling back to previous checkpoint.')
         for i in range(2):
             for new_param, net_param in zip(last_nets[i], nets[i].parameters()):
                 net_param.detach().copy_(new_param.cuda())
         rolled_back = True
+
     else:
         last_nets = ([x.detach().cpu() for x in nets[0].parameters()],[x.detach().cpu() for x in nets[1].parameters()])
         psnr_last = psnr
+
 
     return rolled_back, last_nets, psnr_last
 

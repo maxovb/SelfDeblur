@@ -183,7 +183,7 @@ for f in files_source:
         # tuple with both the image and kernel networks
         nets = (net, net_kernel)
 
-        # SGLD noise addition (can be done separatly from the gradient)
+        # SGLD noise addition
         add_noise_gradients_model(nets, param_noise_sigma, dtype)
 
         # gradient descent step
