@@ -40,7 +40,7 @@ def add_noise_gradients_model(models,param_noise_sigma,dtype):
             param.grad += noise
 
 
-def backtracking(psnr,psnr_last,nets,last_nets,threshold=-5):
+def backtracking(psnr,psnr_last,nets,last_nets,threshold=5):
     """Backtracking in SGLD
 
     To solve the oscillation of model training, we go back to the previous model if the PSNR has
