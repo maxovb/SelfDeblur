@@ -157,7 +157,7 @@ for f in files_source:
         # compute the losses to the gt image
         out_x_cropped = out_x[:,:,padh // 2:padh // 2 + img_size[1], padw // 2:padw // 2 + img_size[2]]
         psnr_gt = peak_signal_noise_ratio(x_gt.detach().cpu().numpy()[0], out_x_cropped.detach().cpu().numpy()[0]).item()
-        ssim_gt = ssim(out_x, x_gt).item()
+        ssim_gt = ssim(out_x_cropped, x_gt).item()
         psnr_gt_list.append(psnr_gt)
         ssim_gt_list.append(ssim_gt)
 
