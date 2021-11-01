@@ -28,7 +28,7 @@ parser.add_argument('--data_path', type=str, default="datasets/levin/", help='pa
 parser.add_argument('--save_path', type=str, default="results/GP_levin/", help='path to save results')
 parser.add_argument('--save_frequency', type=int, default=100, help='frequency to save results')
 parser.add_argument('--loss_frequency', type=int, default=100, help='frequency to compute the losses to the gt image')
-parser.add_argument('--param_noise_sigma',type=float,default=2,help='std of the noise in SGLD')
+parser.add_argument('--param_noise_sigma',type=float,default=2.,help='std of the noise in SGLD')
 parser.add_argument('--weight_decay',type=float,default=5e-8)
 parser.add_argument('--averaging_iter',type=int,default=51)
 parser.add_argument('--MCMC_iter',type=int,default=500)
