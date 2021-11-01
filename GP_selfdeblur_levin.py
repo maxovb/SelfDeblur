@@ -236,7 +236,6 @@ for f in files_source:
                     sum_local_x_MCMC, num_local_MCMC = 0, 0
                     sum_local_k_MCMC = 0
 
-
             if (step+1) % MCMC_iter == 0:
                 sum_global_x_MCMC = out_x.detach().cpu() + sum_global_x_MCMC
                 sum_global_k_MCMC = out_k_m.detach().cpu() + sum_global_k_MCMC

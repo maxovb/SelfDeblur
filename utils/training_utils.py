@@ -17,7 +17,7 @@ def add_noise_weights_model(models,param_noise_sigma,learning_rate,dtype):
     """
     for model in models:
         for n in [x for x in model.parameters() if len(x.size()) == 4]:
-            noise = torch.randn(n.size())*param_noise_sigma*learning_rate
+            noise = torch.randn(n.size()) * param_noise_sigma * learning_rate
             noise = noise.type(dtype)
             n.data = n.data + noise
 
@@ -34,10 +34,10 @@ def add_noise_gradients_model(models,param_noise_sigma,dtype):
     :return: None
     """
     for model in models:
-        for param in model.parameters():
-            noise = torch.randn(param.shape) * math.sqrt(param_noise_sigma)
+        for n in [x for x in model.parameters() if len(x.size()) == 4]:
+            noise = torch.randn(n.size()) * param_noise_sigma
             noise = noise.type(dtype)
-            param.grad += noise
+            n.grad = n.grad + noise
 
 
 def backtracking(psnr,psnr_last,nets,last_nets,threshold=5):
