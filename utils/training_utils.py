@@ -1,4 +1,5 @@
 import torch
+import math
 
 
 def add_noise_weights_model(models,param_noise_sigma,learning_rate,dtype):
@@ -34,7 +35,7 @@ def add_noise_gradients_model(models,param_noise_sigma,dtype):
     """
     for model in models:
         for param in model.parameters():
-            noise = torch.randn(param.shape) * param_noise_sigma
+            noise = torch.randn(param.shape) * math.sqrt(param_noise_sigma)
             noise = noise.type(dtype)
             param.grad += noise
 
