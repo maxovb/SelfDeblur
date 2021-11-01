@@ -1,7 +1,7 @@
 import torch
 
 
-def add_noise_model(models,param_noise_sigma,learning_rate,dtype):
+def add_noise_weights_model(models,param_noise_sigma,learning_rate,dtype):
     """ Adds white noise with std param_noise_sigma to the weights of the model for SGLD
 
     :param models: models for which noise is added to the weights
@@ -19,6 +19,23 @@ def add_noise_model(models,param_noise_sigma,learning_rate,dtype):
             noise = torch.randn(n.size())*param_noise_sigma*learning_rate
             noise = noise.type(dtype)
             n.data = n.data + noise
+
+
+def add_noise_gradients_model(models,param_noise_sigma,dtype):
+    """ Adds white noise with std param_noise_sigma to the gradients for SGLD
+
+    :param models: models for which noise is added to the weights
+    :type models: tuple
+    :param param_noise_sigma: standard deviation of the noise
+    :type param_noise_sigma: int
+    :param dtype: data type for the weights (torch.cuda.FloatTensor or torch.FloatTensor)
+    :type dtype: torch.type
+    :return: None
+    """
+    for model in models:
+        for param in model.parameters():
+            noise = torch.randn(param.shape) * param_noise_sigma
+            param.grad += noise
 
 
 def backtracking(psnr,psnr_last,nets,last_nets,threshold=-5):

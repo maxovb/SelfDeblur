@@ -18,7 +18,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from utils.common_utils import *
 from utils.metrics import comparison_up_to_shift
 from SSIM import SSIM
-from utils.training_utils import add_noise_model, backtracking
+from utils.training_utils import add_noise_weights_model, add_noise_gradients_model, backtracking
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--num_iter', type=int, default=20000, help='number of epochs of training')
@@ -95,7 +95,7 @@ for f in files_source:
     y = np_to_torch(imgs).type(dtype)
 
     # get the real image
-    path_to_gt_image = os.path.join(opt.data_path, "gt/im" + path_to_image.split("im")[0][0] + ".png")
+    path_to_gt_image = os.path.join(opt.data_path, "gt/im" + path_to_image.split("im")[1][0] + ".png")
     _, gt_imgs = get_image(path_to_gt_image, -1)  # load image and convert to np.
     x_gt = np_to_torch(gt_imgs).type(dtype)
 
@@ -179,13 +179,15 @@ for f in files_source:
         # compute the loss
         total_loss = mse(out_y,y) * param_noise_sigma / 2
         total_loss.backward()
-        optimizer.step()
 
         # tuple with both the image and kernel networks
         nets = (net, net_kernel)
 
         # SGLD noise addition (can be done separatly from the gradient)
-        add_noise_model(nets,param_noise_sigma,LR,dtype)
+        add_noise_gradients_model(nets, param_noise_sigma, dtype)
+
+        # gradient descent step
+        optimizer.step()
 
         # compute the psnr to the blurry image
         psnr = peak_signal_noise_ratio(y.detach().cpu().numpy()[0], out_y.detach().cpu().numpy()[0])

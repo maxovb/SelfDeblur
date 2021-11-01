@@ -263,3 +263,4 @@ cython_debug/
 
 # Project specific
 results/
+results_safe/
