@@ -16,6 +16,7 @@ import warnings
 from tqdm import tqdm
 from torch.optim.lr_scheduler import MultiStepLR
 from utils.common_utils import *
+from utils.metrics import comparison_up_to_shift
 from SSIM import SSIM
 from utils.training_utils import add_noise_model, backtracking
 
@@ -26,6 +27,7 @@ parser.add_argument('--kernel_size', type=int, default=[21, 21], help='size of b
 parser.add_argument('--data_path', type=str, default="datasets/levin/", help='path to blurry image')
 parser.add_argument('--save_path', type=str, default="results/GP_levin/", help='path to save results')
 parser.add_argument('--save_frequency', type=int, default=100, help='frequency to save results')
+parser.add_argument('--loss_frequency', type=int, default=100, help='frequency to compute the losses to the gt image')
 parser.add_argument('--param_noise_sigma',type=float,default=2,help='std of the noise in SGLD')
 parser.add_argument('--weight_decay',type=float,default=5e-8)
 parser.add_argument('--averaging_iter',type=int,default=51)
@@ -146,6 +148,7 @@ for f in files_source:
     psnr_list = []
     ssim_gt_list = []
     psnr_gt_list = []
+    losses_step = []
 
     # initialize variables for backtracking
     last_nets = None
@@ -187,16 +190,19 @@ for f in files_source:
         # compute the psnr to the blurry image
         psnr = peak_signal_noise_ratio(y.detach().cpu().numpy()[0], out_y.detach().cpu().numpy()[0])
 
-        # compute the losses to the gt image
-        out_x = out_x[:, :, padh // 2:padh // 2 + img_size[1], padw // 2:padw // 2 + img_size[2]]
-        psnr_gt = peak_signal_noise_ratio(x_gt.detach().cpu().numpy()[0], out_x.detach().cpu().numpy()[0]).item()
-        ssim_gt = ssim(out_x, x_gt).item()
+        if (step + 1) % opt.loss_frequency == 0:
+            # compute the losses to the gt image
+            out_x_cropped = out_x[:, :, padh // 2:padh // 2 + img_size[1], padw // 2:padw // 2 + img_size[2]]
+            ssim_gt, psnr_gt = comparison_up_to_shift(x_gt.detach().cpu().numpy()[0, 0],
+                                                      out_x_cropped.detach().cpu().numpy()[0, 0], maxshift=5)
+            # store the losses to the gt image
+            psnr_gt_list.append(psnr_gt)
+            ssim_gt_list.append(ssim_gt)
+            losses_step.append(step + 1)
 
-        # store the losses
+        # store the losses to the blurry image
         mse_list.append(total_loss.item())
         psnr_list.append(psnr)
-        ssim_gt_list.append(ssim_gt)
-        psnr_gt_list.append(psnr_gt_list)
 
         # backtracking
         if roll_back and (step+1) % MCMC_iter:
@@ -271,7 +277,7 @@ for f in files_source:
 
                 save_path = os.path.join(opt.save_path, '%s_SSIM_gt.png' % imgname)
                 plt.figure()
-                plt.plot(ssim_gt_list)
+                plt.plot(losses_step,ssim_gt_list)
                 plt.xlabel('Iterations', fontsize=15)
                 plt.ylabel('SSIM', fontsize=15)
                 plt.savefig(save_path)
@@ -279,7 +285,7 @@ for f in files_source:
 
                 save_path = os.path.join(opt.save_path, '%s_PSNR_gt.png' % imgname)
                 plt.figure()
-                plt.plot(psnr_gt_list)
+                plt.plot(losses_step,psnr_gt_list)
                 plt.xlabel('Iterations', fontsize=15)
                 plt.ylabel('PSNR', fontsize=15)
                 plt.savefig(save_path)

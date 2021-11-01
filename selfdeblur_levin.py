@@ -14,9 +14,11 @@ from skimage.io import imread
 from skimage.io import imsave
 from skimage.metrics import peak_signal_noise_ratio
 import warnings
+import time
 from tqdm import tqdm
 from torch.optim.lr_scheduler import MultiStepLR
 from utils.common_utils import *
+from utils.metrics import comparison_up_to_shift
 from SSIM import SSIM
 
 parser = argparse.ArgumentParser()
@@ -25,7 +27,8 @@ parser.add_argument('--img_size', type=int, default=[256, 256], help='size of ea
 parser.add_argument('--kernel_size', type=int, default=[21, 21], help='size of blur kernel [height, width]')
 parser.add_argument('--data_path', type=str, default="datasets/levin/", help='path to blurry image')
 parser.add_argument('--save_path', type=str, default="results/levin/", help='path to save results')
-parser.add_argument('--save_frequency', type=int, default=100, help='lfrequency to save results')
+parser.add_argument('--save_frequency', type=int, default=100, help='frequency to save results')
+parser.add_argument('--loss_frequency', type=int, default=100, help='frequency to compute the losses to the gt image')
 opt = parser.parse_args()
 #print(opt)
 
@@ -127,6 +130,7 @@ for f in files_source:
     # initialization list of losses
     psnr_gt_list = []
     ssim_gt_list = []
+    losses_step = []
 
     ### start SelfDeblur
     for step in tqdm(range(num_iter)):
@@ -154,12 +158,15 @@ for f in files_source:
         total_loss.backward()
         optimizer.step()
 
-        # compute the losses to the gt image
-        out_x_cropped = out_x[:,:,padh // 2:padh // 2 + img_size[1], padw // 2:padw // 2 + img_size[2]]
-        psnr_gt = peak_signal_noise_ratio(x_gt.detach().cpu().numpy()[0], out_x_cropped.detach().cpu().numpy()[0]).item()
-        ssim_gt = ssim(out_x_cropped, x_gt).item()
-        psnr_gt_list.append(psnr_gt)
-        ssim_gt_list.append(ssim_gt)
+        if (step+1) % opt.loss_frequency == 0:
+            # compute the losses to the gt image
+            out_x_cropped = out_x[:, :, padh // 2:padh // 2 + img_size[1], padw // 2:padw // 2 + img_size[2]]
+            ssim_gt, psnr_gt = comparison_up_to_shift(x_gt.detach().cpu().numpy()[0, 0],
+                                                      out_x_cropped.detach().cpu().numpy()[0, 0], maxshift=5)
+            # store the losses to the gt image
+            psnr_gt_list.append(psnr_gt)
+            ssim_gt_list.append(ssim_gt)
+            losses_step.append(step+1)
 
         if (step+1) % opt.save_frequency == 0:
             #print('Iteration %05d' %(step+1))
@@ -181,7 +188,7 @@ for f in files_source:
 
             save_path = os.path.join(opt.save_path, '%s_SSIM_gt.png' % imgname)
             plt.figure()
-            plt.plot(ssim_gt_list)
+            plt.plot(losses_step,ssim_gt_list)
             plt.xlabel('Iterations', fontsize=15)
             plt.ylabel('SSIM', fontsize=15)
             plt.savefig(save_path)
@@ -189,7 +196,7 @@ for f in files_source:
 
             save_path = os.path.join(opt.save_path, '%s_PSNR_gt.png' % imgname)
             plt.figure()
-            plt.plot(psnr_gt_list)
+            plt.plot(losses_step,psnr_gt_list)
             plt.xlabel('Iterations', fontsize=15)
             plt.ylabel('PSNR', fontsize=15)
             plt.savefig(save_path)
