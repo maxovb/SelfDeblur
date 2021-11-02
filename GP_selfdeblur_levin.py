@@ -188,10 +188,11 @@ for f in files_source:
             total_loss = 1-ssim(out_y, y)
 
         # SGLD noise addition
-        if opt.noise_weight:
-            add_noise_weights_model(nets, param_noise_sigma, LR, dtype)
-        else:
-            add_noise_gradients_model(nets, param_noise_sigma, dtype)
+        if step > 1000:
+            if opt.noise_weight:
+                add_noise_weights_model(nets, param_noise_sigma, LR, dtype)
+            else:
+                add_noise_gradients_model(nets, param_noise_sigma, dtype)
 
         # gradient descent step
         optimizer.step()
