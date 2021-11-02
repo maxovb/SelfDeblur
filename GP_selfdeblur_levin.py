@@ -181,8 +181,7 @@ for f in files_source:
         total_loss.backward()
 
         # tuple with both the image and kernel networks
-        print("NETT",net)
-        print("NETT KERNEL",net_kernel)
+
         nets = (net, net_kernel)
 
         # SGLD noise addition
