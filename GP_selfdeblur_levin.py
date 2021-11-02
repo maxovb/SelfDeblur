@@ -162,7 +162,7 @@ for f in files_source:
     for step in tqdm(range(num_iter)):
 
         # input regularization
-        net_input = net_input_saved + reg_noise_std*torch.zeros(net_input_saved.shape).type_as(net_input_saved.data).normal_()
+        net_input = net_input_saved + reg_noise_std * torch.zeros(net_input_saved.shape).type_as(net_input_saved.data).normal_()
 
         # change the learning rate
         scheduler.step(step)
@@ -181,6 +181,8 @@ for f in files_source:
         total_loss.backward()
 
         # tuple with both the image and kernel networks
+        print("NETT",net)
+        print("NETT KERNEL",net_kernel)
         nets = (net, net_kernel)
 
         # SGLD noise addition
@@ -188,6 +190,8 @@ for f in files_source:
 
         # gradient descent step
         optimizer.step()
+
+        #add_noise_weights_model(nets, param_noise_sigma, LR, dtype)
 
         # compute the psnr to the blurry image
         psnr = peak_signal_noise_ratio(y.detach().cpu().numpy()[0], out_y.detach().cpu().numpy()[0])
