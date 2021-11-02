@@ -33,11 +33,13 @@ parser.add_argument('--weight_decay',type=float,default=5e-8)
 parser.add_argument('--averaging_iter',type=int,default=51)
 parser.add_argument('--MCMC_iter',type=int,default=500)
 parser.add_argument('--burnin_iter',type=int,default=7000)
+parser.add_argument('--noise_weight', dest='noise_weight', action='store_true')
+parser.add_argument('--noise_gradient', dest='noise_weight', action='store_false')
+parser.set_defaults(noise_weight=False)
 parser.add_argument('--roll_back', dest='roll_back', action='store_true')
 parser.add_argument('--no_roll_back', dest='roll_back', action='store_false')
 parser.set_defaults(roll_back=True)
 opt = parser.parse_args()
-#print(opt)
 
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark =True
@@ -185,12 +187,14 @@ for f in files_source:
         nets = (net, net_kernel)
 
         # SGLD noise addition
-        add_noise_gradients_model(nets, param_noise_sigma, dtype)
+        if opt.noise_weight:
+            add_noise_weights_model(nets, param_noise_sigma, LR, dtype)
+        else:
+            add_noise_gradients_model(nets, param_noise_sigma, dtype)
 
         # gradient descent step
         optimizer.step()
 
-        #add_noise_weights_model(nets, param_noise_sigma, LR, dtype)
 
         # compute the psnr to the blurry image
         psnr = peak_signal_noise_ratio(y.detach().cpu().numpy()[0], out_y.detach().cpu().numpy()[0])
