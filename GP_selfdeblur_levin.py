@@ -178,13 +178,14 @@ for f in files_source:
         # print(out_k_m)
         out_y = nn.functional.conv2d(out_x, out_k_m, padding=0, bias=None)
 
-        # compute the loss
-        total_loss = mse(out_y,y) * param_noise_sigma / 2
-        total_loss.backward()
-
         # tuple with both the image and kernel networks
-
         nets = (net, net_kernel)
+
+        # compute the loss
+        if step < 1000:
+            total_loss = mse(out_y, y) * (1 if opt.noise_weight else param_noise_sigma / 2)
+        else:
+            total_loss = 1-ssim(out_y, y)
 
         # SGLD noise addition
         if opt.noise_weight:
@@ -194,7 +195,6 @@ for f in files_source:
 
         # gradient descent step
         optimizer.step()
-
 
         # compute the psnr to the blurry image
         psnr = peak_signal_noise_ratio(y.detach().cpu().numpy()[0], out_y.detach().cpu().numpy()[0])
