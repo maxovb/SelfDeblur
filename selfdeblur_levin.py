@@ -144,7 +144,7 @@ for f in files_source:
     for step in tqdm(range(num_iter), position=0, leave=True):
 
         # input regularization
-        net_input = net_input_saved + reg_noise_std*torch.zeros(net_input_saved.shape).type_as(net_input_saved.data).normal_()
+        net_input = net_input_saved + reg_noise_std * torch.zeros(net_input_saved.shape).type_as(net_input_saved.data).normal_()
 
         # change the learning rate
         scheduler.step(step)

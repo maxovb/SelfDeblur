@@ -145,6 +145,8 @@ for f in files_source:
         optimizer = pSGLD([{'params':net.parameters()},{'params':net_kernel.parameters(),'lr':1e-4}], lr=LR, norm_sigma= 1/math.sqrt(weight_decay), addnoise=True)
     else:
         optimizer = SGLD([{'params':net.parameters()},{'params':net_kernel.parameters(),'lr':1e-4}], lr=LR, norm_sigma= 1/math.sqrt(weight_decay), addnoise=True)
+
+    # learning rate scheduler
     lambda1 = lambda step: 1/(step+1)
     scheduler = LambdaLR(optimizer,lr_lambda=lambda1)
 
