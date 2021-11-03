@@ -26,7 +26,7 @@ parser.add_argument('--num_iter', type=int, default=20000, help='Number of epoch
 parser.add_argument('--img_size', type=int, default=[256, 256], help='Size of each image dimension. Default: [256,256].')
 parser.add_argument('--kernel_size', type=int, default=[21, 21], help='Size of blur kernel [height, width]. Default: [21,21].')
 parser.add_argument('--data_path', type=str, default="datasets/levin/", help='Path to blurry image. Default: datasets/levin/ .')
-parser.add_argument('--save_path', type=str, default="results/GP_levin/", help='Path to save results. Default: results/GP_levin/ .')
+parser.add_argument('--save_path', type=str, default="results/GP_levin_JASGLD/", help='Path to save results. Default: results/GP_levin/ .')
 parser.add_argument('--save_frequency', type=int, default=100, help='Frequency to save results. Defaults: 100.')
 parser.add_argument('--loss_frequency', type=int, default=100, help='Frequency to compute the losses to the gt image. Defaults: 100.')
 parser.add_argument('--use_preconditioning', type=bool, nargs='?', action='store', default=True, help='Use RMSprop preconditioning. Default: True.')
