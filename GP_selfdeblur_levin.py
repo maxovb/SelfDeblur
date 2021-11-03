@@ -10,6 +10,7 @@ import cv2
 import torch
 import torch.optim
 import glob
+import math
 from skimage.io import imread
 from skimage.metrics import peak_signal_noise_ratio
 import warnings
@@ -24,6 +25,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--num_iter', type=int, default=20000, help='number of epochs of training')
 parser.add_argument('--img_size', type=int, default=[256, 256], help='size of each image dimension')
 parser.add_argument('--kernel_size', type=int, default=[21, 21], help='size of blur kernel [height, width]')
+parser.add_argument('--downsize',type=int,default=1,help='Ratio to downsize the image to enable faster debugging')
 parser.add_argument('--data_path', type=str, default="datasets/levin/", help='path to blurry image')
 parser.add_argument('--save_path', type=str, default="results/GP_levin/", help='path to save results')
 parser.add_argument('--save_frequency', type=int, default=100, help='frequency to save results')
@@ -101,7 +103,13 @@ for f in files_source:
     _, gt_imgs = get_image(path_to_gt_image, -1)  # load image and convert to np.
     x_gt = np_to_torch(gt_imgs).type(dtype)
 
-    img_size = imgs.shape
+    # downsize the image
+    if opt.downsize != 1:
+        opt.kernel_size = [math.ceil(x/opt.downsize) for x in opt.kernel_size]
+        y = torchvision.transforms.Resize([y.shape[-2]//opt.downsize,y.shape[-1]//opt.downsize])(y)
+        x_gt = torchvision.transforms.Resize([x_gt.shape[-2] // opt.downsize, x_gt.shape[-1] // opt.downsize])(y)
+
+    img_size = y.shape[-3:]
     print(imgname)
     # ######################################################################
     padh, padw = opt.kernel_size[0]-1, opt.kernel_size[1]-1

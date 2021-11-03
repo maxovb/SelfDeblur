@@ -24,9 +24,11 @@ from utils.SGLD import SGLD, pSGLD
 parser = argparse.ArgumentParser()
 parser.add_argument('--num_iter', type=int, default=20000, help='Number of epochs of training. Default: 20000.')
 parser.add_argument('--img_size', type=int, default=[256, 256], help='Size of each image dimension. Default: [256,256].')
+parser.add_argument('--downsize',type=int,default=1,help='Ratio to downsize the image to enable faster debugging')
 parser.add_argument('--kernel_size', type=int, default=[21, 21], help='Size of blur kernel [height, width]. Default: [21,21].')
 parser.add_argument('--data_path', type=str, default="datasets/levin/", help='Path to blurry image. Default: datasets/levin/ .')
 parser.add_argument('--save_path', type=str, default="results/GP_levin_JASGLD/", help='Path to save results. Default: results/GP_levin/ .')
+parser.add_argument('--learning_rate', type=bool, default=0.01, help='Learnign rate to scale the gradient update steps. Default: 0.01.')
 parser.add_argument('--save_frequency', type=int, default=100, help='Frequency to save results. Defaults: 100.')
 parser.add_argument('--loss_frequency', type=int, default=100, help='Frequency to compute the losses to the gt image. Defaults: 100.')
 parser.add_argument('--use_preconditioning', type=bool, nargs='?', action='store', default=True, help='Use RMSprop preconditioning. Default: True.')
@@ -57,7 +59,7 @@ roll_back = opt.roll_back
 for f in files_source:
     INPUT = 'noise'
     pad = 'reflection'
-    LR = 0.01
+    LR = opt.learning_rate
     num_iter = opt.num_iter
     reg_noise_std = 0.001
     weight_decay = opt.weight_decay
@@ -96,7 +98,13 @@ for f in files_source:
     _, gt_imgs = get_image(path_to_gt_image, -1)  # load image and convert to np.
     x_gt = np_to_torch(gt_imgs).type(dtype)
 
-    img_size = imgs.shape
+    # downsize the image
+    if opt.downsize != 1:
+        opt.kernel_size = [math.ceil(x/opt.downsize) for x in opt.kernel_size]
+        y = torchvision.transforms.Resize([y.shape[-2]//opt.downsize,y.shape[-1]//opt.downsize])(y)
+        x_gt = torchvision.transforms.Resize([x_gt.shape[-2] // opt.downsize, x_gt.shape[-1] // opt.downsize])(y)
+
+    img_size = y.shape[-3:]
     print(imgname)
     # ######################################################################
     padh, padw = opt.kernel_size[0]-1, opt.kernel_size[1]-1
