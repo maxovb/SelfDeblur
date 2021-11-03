@@ -1,4 +1,3 @@
-
 from __future__ import print_function
 import matplotlib.pyplot as plt
 import argparse
@@ -9,36 +8,33 @@ from networks.fcn import fcn
 import cv2
 import torch
 import torch.optim
+import math
 import glob
 from skimage.io import imread
 from skimage.metrics import peak_signal_noise_ratio
 import warnings
 from tqdm import tqdm
-from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import LambdaLR
 from utils.common_utils import *
 from utils.metrics import comparison_up_to_shift
 from SSIM import SSIM
 from utils.training_utils import add_noise_weights_model, add_noise_gradients_model, backtracking
+from utils.SGLD import SGLD, pSGLD
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--num_iter', type=int, default=20000, help='number of epochs of training')
-parser.add_argument('--img_size', type=int, default=[256, 256], help='size of each image dimension')
-parser.add_argument('--kernel_size', type=int, default=[21, 21], help='size of blur kernel [height, width]')
-parser.add_argument('--data_path', type=str, default="datasets/levin/", help='path to blurry image')
-parser.add_argument('--save_path', type=str, default="results/GP_levin/", help='path to save results')
-parser.add_argument('--save_frequency', type=int, default=100, help='frequency to save results')
-parser.add_argument('--loss_frequency', type=int, default=100, help='frequency to compute the losses to the gt image')
-parser.add_argument('--param_noise_sigma',type=float,default=2.,help='std of the noise in SGLD')
-parser.add_argument('--weight_decay',type=float,default=5e-8)
-parser.add_argument('--averaging_iter',type=int,default=51)
-parser.add_argument('--MCMC_iter',type=int,default=500)
-parser.add_argument('--burnin_iter',type=int,default=7000)
-parser.add_argument('--noise_weight', dest='noise_weight', action='store_true')
-parser.add_argument('--noise_gradient', dest='noise_weight', action='store_false')
-parser.set_defaults(noise_weight=False)
-parser.add_argument('--roll_back', dest='roll_back', action='store_true')
-parser.add_argument('--no_roll_back', dest='roll_back', action='store_false')
-parser.set_defaults(roll_back=True)
+parser.add_argument('--num_iter', type=int, default=20000, help='Number of epochs of training. Default: 20000.')
+parser.add_argument('--img_size', type=int, default=[256, 256], help='Size of each image dimension. Default: [256,256].')
+parser.add_argument('--kernel_size', type=int, default=[21, 21], help='Size of blur kernel [height, width]. Default: [21,21].')
+parser.add_argument('--data_path', type=str, default="datasets/levin/", help='Path to blurry image. Default: datasets/levin/ .')
+parser.add_argument('--save_path', type=str, default="results/GP_levin/", help='Path to save results. Default: results/GP_levin/ .')
+parser.add_argument('--save_frequency', type=int, default=100, help='Frequency to save results. Defaults: 100.')
+parser.add_argument('--loss_frequency', type=int, default=100, help='Frequency to compute the losses to the gt image. Defaults: 100.')
+parser.add_argument('--use_preconditioning', type=bool, nargs='?', action='store', default=True, help='Use RMSprop preconditioning. Default: True.')
+parser.add_argument('--weight_decay',type=float,default=5e-8, help='Weight decay to penalize large weights. Default: 5e-8.')
+parser.add_argument('--averaging_iter',type=int,default=51, help='Number of iterations over which local MCMC are averaged. Default: 51.')
+parser.add_argument('--MCMC_iter',type=int,default=500, help='Number of iterations for sampling for the global MCMC. Default: 500.')
+parser.add_argument('--burnin_iter',type=int,default=7000, help='Number of iterations after which to start sampling. Default: 7000.')
+parser.add_argument('--roll_back',type = bool, nargs = '?', action = 'store', default = True, help='Use backrolling if large drop in PSNR. Default: True.')
 opt = parser.parse_args()
 
 torch.backends.cudnn.enabled = True
@@ -67,7 +63,6 @@ for f in files_source:
     weight_decay = opt.weight_decay
 
     # parameters for the SGLD
-    param_noise_sigma = opt.param_noise_sigma
     averaging_iter = opt.averaging_iter
     MCMC_iter = opt.MCMC_iter
     burnin_iter = opt.burnin_iter
@@ -138,8 +133,12 @@ for f in files_source:
     ssim = SSIM().type(dtype)
 
     # optimizer
-    optimizer = torch.optim.Adam([{'params':net.parameters()},{'params':net_kernel.parameters(),'lr':1e-4}], lr=LR, weight_decay=weight_decay)
-    scheduler = MultiStepLR(optimizer, milestones=[2000, 3000, 4000], gamma=0.5)  # learning rates
+    if opt.use_preconditioning:
+        optimizer = pSGLD([{'params':net.parameters()},{'params':net_kernel.parameters(),'lr':1e-4}], lr=LR, norm_sigma= 1/math.sqrt(weight_decay), addnoise=True)
+    else:
+        optimizer = SGLD([{'params':net.parameters()},{'params':net_kernel.parameters(),'lr':1e-4}], lr=LR, norm_sigma= 1/math.sqrt(weight_decay), addnoise=True)
+    lambda1 = lambda step: 1/(step+1)
+    scheduler = LambdaLR(optimizer,lr_lambda=lambda1)
 
     # initilization inputs
     net_input_saved = net_input.detach().clone()
@@ -183,19 +182,12 @@ for f in files_source:
 
         # compute the loss
         if step < 1000:
-            total_loss = mse(out_y, y) * (1 if opt.noise_weight else param_noise_sigma / 2)
+            total_loss = mse(out_y, y)
         else:
-            total_loss = 1-ssim(out_y, y) * (1 if opt.noise_weight else param_noise_sigma / 2)
+            total_loss = 1-ssim(out_y, y)
         total_loss.backward()
 
-        # SGLD noise addition
-        if step > 1000:
-            if opt.noise_weight:
-                add_noise_weights_model(nets, param_noise_sigma, LR, dtype)
-            else:
-                add_noise_gradients_model(nets, param_noise_sigma, dtype)
-
-        # gradient descent step
+        # SGLD optimization
         optimizer.step()
 
         # compute the psnr to the blurry image
