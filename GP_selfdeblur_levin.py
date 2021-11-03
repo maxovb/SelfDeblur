@@ -185,7 +185,8 @@ for f in files_source:
         if step < 1000:
             total_loss = mse(out_y, y) * (1 if opt.noise_weight else param_noise_sigma / 2)
         else:
-            total_loss = 1-ssim(out_y, y)
+            total_loss = 1-ssim(out_y, y) * (1 if opt.noise_weight else param_noise_sigma / 2)
+        total_loss.backward()
 
         # SGLD noise addition
         if step > 1000:
